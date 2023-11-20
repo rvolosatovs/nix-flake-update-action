@@ -1,4 +1,5 @@
 name: Nix flake lock update
+description: Opinionated Nix flake lock update action
 
 inputs:
   app_id:
