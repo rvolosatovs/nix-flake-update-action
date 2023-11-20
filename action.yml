@@ -2,45 +2,12 @@ name: Nix flake lock update
 description: Opinionated Nix flake lock update action
 
 inputs:
-  app_id:
+  app-id:
     description: ID of the GitHub App.
     required: true
-  github_api_url:
-    description: The API URL of the GitHub server.
-    default: ${{ github.api_url }}
-  installation_retrieval_mode:
-    description: >-
-      The mode used to retrieve the installation for which the token will be requested.
-
-      One of:
-      - id: use the installation with the specified ID.
-      - organization: use an organization installation (https://docs.github.com/en/rest/apps/apps?apiVersion=2022-11-28#get-an-organization-installation-for-the-authenticated-app).
-      - repository: use a repository installation (https://docs.github.com/en/rest/apps/apps?apiVersion=2022-11-28#get-a-repository-installation-for-the-authenticated-app).
-      - user: use a user installation (https://docs.github.com/en/rest/apps/apps?apiVersion=2022-11-28#get-a-user-installation-for-the-authenticated-app).
-    default: repository
-  installation_retrieval_payload:
-    description: >-
-      The payload used to retrieve the installation.
-
-      Examples for each retrieval mode:
-      - id: 1337
-      - organization: github
-      - repository: tibdex/github-app-token
-      - user: tibdex
-    default: ${{ github.repository }}
-  permissions:
-    description: >-
-      The JSON-stringified permissions granted to the token.
-      Defaults to all permissions granted to the GitHub app.
-      See https://docs.github.com/en/rest/apps/apps?apiVersion=2022-11-28#create-an-installation-access-token-for-an-app's `permissions`.
-  private_key:
+  private-key:
     description: Private key of the GitHub App (can be Base64 encoded).
     required: true
-  repositories:
-    description: >-
-      The JSON-stringified array of the full names of the repositories the token should have access to.
-      Defaults to all repositories that the installation can access.
-      See https://docs.github.com/en/rest/apps/apps?apiVersion=2022-11-28#create-an-installation-access-token-for-an-app's `repositories`.
   path:
     description: >
       Relative path under $GITHUB_WORKSPACE to the repository.
@@ -97,15 +64,10 @@ runs:
   using: composite
   steps:
     - id: app-token
-      uses: tibdex/github-app-token@v2
+      uses: actions/create-github-app-token@v1
       with:
-        app_id: ${{ inputs.app_id }}
-        github_api_url: ${{ inputs.github_api_url }}
-        installation_retrieval_mode: ${{ inputs.installation_retrieval_mode }}
-        installation_retrieval_payload: ${{ inputs.installation_retrieval_payload }}
-        permissions: ${{ inputs.permissions }}
-        private_key: ${{ inputs.private_key }}
-        repositories: ${{ inputs.repositories }}
+        app-id: ${{ inputs.app-id }}
+        private-key: ${{ inputs.private-key }}
 
     - uses: actions/checkout@v4
       with:
@@ -162,6 +124,7 @@ runs:
         draft: ${{ inputs.draft }}
         labels: ${{ inputs.labels }}
         milestone: ${{ inputs.milestone }}
+        path: ${{ inputs.path }}
         push-to-fork: ${{ inputs.push-to-fork }}
         reviewers: ${{ inputs.reviewers }}
         signoff: ${{ inputs.signoff }}
