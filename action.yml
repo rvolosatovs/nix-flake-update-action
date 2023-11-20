@@ -1,0 +1,169 @@
+name: Nix flake lock update
+
+inputs:
+  app_id:
+    description: ID of the GitHub App.
+    required: true
+  github_api_url:
+    description: The API URL of the GitHub server.
+    default: ${{ github.api_url }}
+  installation_retrieval_mode:
+    description: >-
+      The mode used to retrieve the installation for which the token will be requested.
+
+      One of:
+      - id: use the installation with the specified ID.
+      - organization: use an organization installation (https://docs.github.com/en/rest/apps/apps?apiVersion=2022-11-28#get-an-organization-installation-for-the-authenticated-app).
+      - repository: use a repository installation (https://docs.github.com/en/rest/apps/apps?apiVersion=2022-11-28#get-a-repository-installation-for-the-authenticated-app).
+      - user: use a user installation (https://docs.github.com/en/rest/apps/apps?apiVersion=2022-11-28#get-a-user-installation-for-the-authenticated-app).
+    default: repository
+  installation_retrieval_payload:
+    description: >-
+      The payload used to retrieve the installation.
+
+      Examples for each retrieval mode:
+      - id: 1337
+      - organization: github
+      - repository: tibdex/github-app-token
+      - user: tibdex
+    default: ${{ github.repository }}
+  permissions:
+    description: >-
+      The JSON-stringified permissions granted to the token.
+      Defaults to all permissions granted to the GitHub app.
+      See https://docs.github.com/en/rest/apps/apps?apiVersion=2022-11-28#create-an-installation-access-token-for-an-app's `permissions`.
+  private_key:
+    description: Private key of the GitHub App (can be Base64 encoded).
+    required: true
+  repositories:
+    description: >-
+      The JSON-stringified array of the full names of the repositories the token should have access to.
+      Defaults to all repositories that the installation can access.
+      See https://docs.github.com/en/rest/apps/apps?apiVersion=2022-11-28#create-an-installation-access-token-for-an-app's `repositories`.
+  path:
+    description: >
+      Relative path under $GITHUB_WORKSPACE to the repository.
+      Defaults to $GITHUB_WORKSPACE.
+  committer:
+    description: >
+      The committer name and email address in the format `Display Name <email@address.com>`.
+      Defaults to 'github-actions[bot] <github-actions[bot]@users.noreply.github.com>'.
+    default: 'github-actions[bot] <github-actions[bot]@users.noreply.github.com>'
+  author:
+    description: >
+      The author name and email address in the format `Display Name <email@address.com>`.
+      Defaults to 'github-actions[bot] <github-actions[bot]@users.noreply.github.com>'.
+    default: 'github-actions[bot] <github-actions[bot]@users.noreply.github.com>'
+  signoff:
+    description: 'Add `Signed-off-by` line by the committer at the end of the commit log message.'
+    default: false
+  branch:
+    description: 'The pull request branch name.'
+    default: 'build/update-flake-lock'
+  delete-branch:
+    description: >
+      Delete the `branch` when closing pull requests, and when undeleted after merging.
+      Recommend `true`.
+    default: false
+  base:
+    description: >
+      The pull request base branch.
+      Defaults to the branch checked out in the workflow.
+  push-to-fork:
+    description: >
+      A fork of the checked out parent repository to which the pull request branch will be pushed.
+      e.g. `owner/repo-fork`.
+      The pull request will be created to merge the fork's branch into the parent's base.
+  title:
+    description: 'The title of the pull request.'
+    default: 'build(nix): update dependencies'
+  labels:
+    description: 'A comma or newline separated list of labels.'
+  assignees:
+    description: 'A comma or newline separated list of assignees (GitHub usernames).'
+  reviewers:
+    description: 'A comma or newline separated list of reviewers (GitHub usernames) to request a review from.'
+  team-reviewers:
+    description: >
+      A comma or newline separated list of GitHub teams to request a review from.
+  milestone:
+    description: 'The number of the milestone to associate the pull request with.'
+  draft:
+    description: 'Create a draft pull request. It is not possible to change draft status after creation except through the web interface'
+    default: false
+
+runs:
+  using: composite
+  steps:
+    - id: app-token
+      uses: tibdex/github-app-token@v2
+      with:
+        app_id: ${{ inputs.app_id }}
+        github_api_url: ${{ inputs.github_api_url }}
+        installation_retrieval_mode: ${{ inputs.installation_retrieval_mode }}
+        installation_retrieval_payload: ${{ inputs.installation_retrieval_payload }}
+        permissions: ${{ inputs.permissions }}
+        private_key: ${{ inputs.private_key }}
+        repositories: ${{ inputs.repositories }}
+
+    - uses: actions/checkout@v4
+      with:
+        sparse-checkout: |
+          flake.nix
+          flake.lock
+
+    - uses: DeterminateSystems/nix-installer-action@v7
+
+    - name: Update flake lock
+      id: update
+      shell: bash
+      run: |
+        git config user.name github-actions[bot]
+        git config user.email github-actions[bot]@users.noreply.github.com
+
+        tip=$(git rev-parse HEAD)
+        nix flake update --commit-lock-file --commit-lockfile-summary 'build(nix): update dependencies'
+
+        if [ $tip != $(git rev-parse HEAD) ]; then
+          echo "updated=true" >> $GITHUB_OUTPUT
+
+          echo "UPDATED_INPUTS<<EOF" >> $GITHUB_ENV
+          git log --format=%b -n 1 | tail -n +3 >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+          git reset HEAD^
+        fi
+
+    - uses: peter-evans/create-pull-request@v5
+      id: cpr
+      if: ${{ steps.update.outputs.updated == 'true' }}
+      with:
+        assignees: ${{ inputs.assignees }}
+        author: ${{ inputs.author }}
+        base: ${{ inputs.base }}
+        body: |
+          ## Description
+
+          Automated Nix flake update
+
+          ## Changes
+
+          ```
+          ${{ env.UPDATED_INPUTS }}
+          ```
+        branch: ${{ inputs.branch }}
+        commit-message: |
+          build(nix): update dependencies
+
+          ${{ env.UPDATED_INPUTS }}
+        committer: ${{ inputs.committer }}
+        delete-branch: ${{ inputs.delete-branch }}
+        draft: ${{ inputs.draft }}
+        labels: ${{ inputs.labels }}
+        milestone: ${{ inputs.milestone }}
+        push-to-fork: ${{ inputs.push-to-fork }}
+        reviewers: ${{ inputs.reviewers }}
+        signoff: ${{ inputs.signoff }}
+        team-reviewers: ${{ inputs.team-reviewers }}
+        title: ${{ inputs.title }}
+        token: ${{ steps.app-token.outputs.token }}
