@@ -75,7 +75,7 @@ runs:
           flake.nix
           flake.lock
 
-    - uses: DeterminateSystems/nix-installer-action@v7
+    - uses: DeterminateSystems/nix-installer-action@v9
 
     - name: Update flake lock
       id: update
