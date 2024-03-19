@@ -70,10 +70,6 @@ runs:
         private-key: ${{ inputs.private-key }}
 
     - uses: actions/checkout@v4
-      with:
-        sparse-checkout: |
-          flake.nix
-          flake.lock
 
     - uses: DeterminateSystems/nix-installer-action@v10
 
