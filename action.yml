@@ -81,7 +81,7 @@ runs:
         git config user.email github-actions[bot]@users.noreply.github.com
 
         tip=$(git rev-parse HEAD)
-        nix flake update --commit-lock-file --commit-lockfile-summary 'build(nix): update dependencies'
+        nix flake update --commit-lock-file --commit-lock-file-summary 'build(nix): update dependencies'
 
         if [ $tip != $(git rev-parse HEAD) ]; then
           echo "updated=true" >> $GITHUB_OUTPUT
