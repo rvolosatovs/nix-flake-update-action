@@ -71,7 +71,7 @@ runs:
 
     - uses: actions/checkout@v7
 
-    - uses: DeterminateSystems/nix-installer-action@v21
+    - uses: DeterminateSystems/nix-installer-action@v22
 
     - name: Update flake lock
       id: update
